@@ -1,0 +1,93 @@
+extends CharacterBody2D
+
+
+@export var walking_speed = 52
+@export var running_speed = 94
+@export_range(0,1) var acceleration = 0.1
+@export_range(0,1) var deceleration = 0.1
+
+@export var jump_force = -267
+@export_range(0,1) var decelerate_on_jump_release = 0.5
+
+@export var dash_speed = 290
+@export var dash_max_distance = 40
+@export var dash_curve : Curve
+@export var dash_cooldown = 1.0
+
+@onready var animated_sprite = $AnimatedSprite2D
+
+var is_dashing = false
+var dash_start_posotion = 0
+var dash_direction = 0
+var dash_timer = 0
+
+func _physics_process(delta: float) -> void:
+	# Add the gravity.
+	if not is_on_floor():
+		velocity += get_gravity() * delta
+
+	# Handle jump.
+	if Input.is_action_just_pressed("jump") and (is_on_floor() or is_on_wall()):
+		velocity.y = jump_force
+		
+	if Input.is_action_just_released("jump") and velocity.y < 0:
+		velocity.y *= decelerate_on_jump_release
+
+
+
+	# And also the directional movment.
+	var direction := Input.get_axis("left", "right")
+	
+	# Flip the character
+	if direction > 0:
+		animated_sprite.flip_h = false
+	elif direction < 0:
+		animated_sprite.flip_h = true
+	
+	# Player animations
+	if is_on_floor():
+		if direction == 0:
+			animated_sprite.play("idle")
+		else:
+			animated_sprite.play("run")
+	else:
+		animated_sprite.play("jump")
+	
+	# I Show Speed
+	var speed
+	if Input.is_action_pressed("run"):
+		speed = running_speed
+	else:
+		speed = walking_speed
+		
+	
+	# Apply movment
+	if direction:
+		velocity.x =  move_toward(velocity.x , direction * speed ,speed * acceleration)
+	else :
+		velocity.x = move_toward(velocity.x, 0, walking_speed * deceleration)
+		
+	# I show DASH
+	if Input.is_action_just_pressed("dash") and direction and not is_dashing and dash_timer <= 0:
+		is_dashing = true
+		dash_start_posotion = position.x
+		dash_direction = direction
+		dash_timer = dash_cooldown
+		
+	#gdash
+	if is_dashing:
+		animated_sprite.play("dash")
+		var current_distance = abs(position.x - dash_start_posotion)
+		if current_distance >= dash_max_distance or is_on_wall():
+			is_dashing = false
+		else :
+			velocity.x = dash_direction * dash_speed * dash_curve.sample(current_distance / dash_max_distance)
+			velocity.y = 0
+	# dahs
+	if dash_timer > 0:
+		dash_timer -= delta
+		
+	# hitbox
+	
+	
+	move_and_slide()
